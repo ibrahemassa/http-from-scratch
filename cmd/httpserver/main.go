@@ -1,13 +1,16 @@
 package main
 
 import (
+	// "fmt"
 	"ibrahemassa/http_bootdev/internal/headers"
 	"ibrahemassa/http_bootdev/internal/request"
 	"ibrahemassa/http_bootdev/internal/response"
 	"ibrahemassa/http_bootdev/internal/server"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -52,6 +55,7 @@ func funnyHandler(w *response.Writer, req *request.Request){
 	var statusCode response.StatusCode
 	var h headers.Headers 
 	var body []byte
+	chunked := false
 	if req.RequestLine.RequestTarget == "/yourproblem"{
 		statusCode = response.BadRequest
 		body = badRequest
@@ -66,11 +70,36 @@ func funnyHandler(w *response.Writer, req *request.Request){
 		// 	StatusCode: response.InternalServerError,
 		// 	Body: "Woopsie, my bad\n",
 		// }
+	} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin") {
+		res, err := http.Get("https://httpbin.org/" + req.RequestLine.RequestTarget[len("/httpbin/"):])
+		if err != nil{
+			log.Fatal(err)
+		}
+		statusCode = response.OK
+
+		w.WriteStatusLine(response.OK)
+		h = response.GetDefaultHeader(len(body), "text/plain")
+		h.Set("transfer-encodin", "chunked")
+		h.Delete("content-length")
+		w.WriteHeaders(h)
+		for {
+			data := make([]byte, 32)
+			_, err := res.Body.Read(data)
+			if err != nil{
+				break
+			}
+			w.WriteChunckedBody(data)
+		}
+		w.WriteChunckedBodyDone()
+
 	} else{
 		statusCode = response.OK
 		body = successResponse
 	}
 
+	if chunked{
+		return
+	}
 	h = response.GetDefaultHeader(len(body), "text/html")
 	err := w.WriteStatusLine(statusCode)
 	if err != nil{
@@ -84,7 +113,8 @@ func funnyHandler(w *response.Writer, req *request.Request){
 		return
 	}
 
-	_, err = w.WriteBody(body)
+	// _, err = w.WriteBody(body)
+	_, err = w.WriteChunckedBody(body)
 	if err != nil{
 		log.Fatal(err)
 		return

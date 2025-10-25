@@ -42,6 +42,11 @@ func (h Headers) Get(key string) string {
 	return h[strings.ToLower(key)]
 }
 
+func (h Headers) Delete(key string) {
+	key = strings.ToLower(key)
+	delete(h, key)
+}
+
 func keyIsValid(key string) bool {
 	if len(key) < 1 {
 		return false
