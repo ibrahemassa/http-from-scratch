@@ -20,7 +20,7 @@ func GetDefaultHeader(contentLen int, mimeType string) headers.Headers {
 
 func (w *Writer) WriteHeaders(headers headers.Headers) error{
 	if w.writerState != WritingHeader {
-		return fmt.Errorf("cannot write status line in state %d", w.writerState)
+		return fmt.Errorf("cannot write headers in state %d", w.writerState)
 	}
 	defer func() { w.writerState = WritingBody }()
 
@@ -33,4 +33,21 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error{
 	_, err := w.Write([]byte("\r\n"))
 
 	return err
+}
+
+func (w *Writer) WriteTrailers(t headers.Headers) error{
+	if w.writerState != WritingBody{
+		return fmt.Errorf("cannot write trailers in state %d", w.writerState)
+	}
+
+	for k, v := range t{
+		_, err := w.Write([]byte(fmt.Sprintf("%s: %s\r\n", k, v)))
+		if err != nil {
+			return err
+		}
+	}
+	// _, err := w.Write([]byte("\r\n"))
+
+	// return err
+	return nil
 }

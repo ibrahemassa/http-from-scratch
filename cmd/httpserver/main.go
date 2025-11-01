@@ -1,7 +1,9 @@
 package main
 
 import (
-	// "fmt"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"ibrahemassa/http_bootdev/internal/headers"
 	"ibrahemassa/http_bootdev/internal/request"
 	"ibrahemassa/http_bootdev/internal/response"
@@ -15,6 +17,18 @@ import (
 )
 
 const port = 42069
+
+func toStr(p []byte) string {
+    return hex.EncodeToString(p)
+}
+
+// func toStr(p []byte) string {
+//     s := ""
+//     for _, b := range p {
+//         s += fmt.Sprintf("%02x", b) 
+//     }
+//     return s
+// }
 
 func funnyHandler(w *response.Writer, req *request.Request){
 	badRequest := []byte(`
@@ -76,23 +90,45 @@ func funnyHandler(w *response.Writer, req *request.Request){
 			log.Fatal(err)
 		}
 		statusCode = response.OK
+		full := []byte{}
+		chunked = true
 
 		w.WriteStatusLine(response.OK)
 		h = response.GetDefaultHeader(len(body), "text/plain")
-		h.Set("transfer-encodin", "chunked")
+		h.Set("transfer-encoding", "chunked")
+		h.Set("Trailer", "X-Content-SHA256")
+		h.Set("Trailer", "X-Content-Length")
 		h.Delete("content-length")
 		w.WriteHeaders(h)
 		for {
 			data := make([]byte, 32)
-			_, err := res.Body.Read(data)
+			n, err := res.Body.Read(data)
 			if err != nil{
 				break
 			}
-			w.WriteChunckedBody(data)
+			full = append(full, data[:n]...)
+			w.WriteChunckedBody(data[:n])
 		}
-		w.WriteChunckedBodyDone()
+		w.WriteBody([]byte("0\r\n"))
+		t := headers.NewHeaders()
+		t.Set("X-Content-Length", fmt.Sprintf("%d", len(full)))
+		hash := sha256.Sum256(full)
+		t.Set("X-Content-SHA256", toStr(hash[:]))
+		w.WriteTrailers(t)
+		// w.WriteHeaders(t)
+		// w.WriteChunckedBodyDone()
+		w.Write([]byte("\r\n"))
 
-	} else{
+	} else if req.RequestLine.RequestTarget == "/video"{
+		statusCode = response.OK
+		video, err := os.ReadFile("/home/ibrahem/programming/http_bootdev/assets/vim.mp4")
+		if err != nil{
+			log.Fatal(err)
+		}
+		h = response.GetDefaultHeader(len(video), "video/mp4")
+		body = video
+
+}else{
 		statusCode = response.OK
 		body = successResponse
 	}
@@ -100,7 +136,9 @@ func funnyHandler(w *response.Writer, req *request.Request){
 	if chunked{
 		return
 	}
-	h = response.GetDefaultHeader(len(body), "text/html")
+	if h == nil{
+		h = response.GetDefaultHeader(len(body), "text/html")
+	}
 	err := w.WriteStatusLine(statusCode)
 	if err != nil{
 		log.Fatal(err)

@@ -6,7 +6,7 @@ import(
 
 func (w *Writer) WriteBody(p []byte) (int, error){
 	if w.writerState != WritingBody {
-		return 0, fmt.Errorf("cannot write status line in state %d", w.writerState)
+		return 0, fmt.Errorf("cannot write body in state %d", w.writerState)
 	}
 
 	n, err := w.Write(p)
@@ -19,7 +19,7 @@ func (w *Writer) WriteBody(p []byte) (int, error){
 
 func (w *Writer) writeChunk(p []byte) (int, error){
 	if w.writerState != WritingBody {
-		return 0, fmt.Errorf("cannot write status line in state %d", w.writerState)
+		return 0, fmt.Errorf("cannot write chunked body in state %d", w.writerState)
 	}
 	content := fmt.Sprintf("%X\r\n%s\r\n", len(p), p)
 	_, err := w.WriteBody([]byte(content))
@@ -32,7 +32,7 @@ func (w *Writer) writeChunk(p []byte) (int, error){
 
 func (w *Writer) WriteChunckedBody(p []byte) (int, error){
 	if w.writerState != WritingBody {
-		return 0, fmt.Errorf("cannot write status line in state %d", w.writerState)
+		return 0, fmt.Errorf("cannot write chunked body done in state %d", w.writerState)
 	}
 	n := len(p)
 
@@ -55,7 +55,7 @@ func (w *Writer) WriteChunckedBody(p []byte) (int, error){
 }
 
 func (w *Writer) WriteChunckedBodyDone() (int, error){
-	_, err := w.WriteBody([]byte("0\r\n\r\n"))
+	_, err := w.WriteBody([]byte("0\r\n"))
 	return 0, err
 }
 
